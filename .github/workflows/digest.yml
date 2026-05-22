@@ -1,0 +1,44 @@
+name: Daily Ruby Digest
+
+on:
+  schedule:
+    # Every day at 05:00 UTC = 08:00 Turkey time (UTC+3)
+    - cron: "0 5 * * *"
+    # weekly, every Monday 08:00 TR
+    - cron: "0 5 * * 1"
+  workflow_dispatch: # Manual trigger for testing
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cache items.json and etags.json between runs
+      - name: Restore data cache
+        uses: actions/cache@v4
+        with:
+          path: data/
+          key: ruby-digest-data-${{ github.run_id }}
+          restore-keys: ruby-digest-data-
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Fetch feeds
+        run: ruby fetch.rb
+
+      - name: Summarize with AI
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: ruby ai_summarize.rb
+
+      - name: Send email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
+        run: ruby send_email.rb
